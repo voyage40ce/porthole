@@ -1,0 +1,28 @@
+# porthole.toml — example configuration
+# Copy to porthole.toml and adjust to your services.
+
+[proxy]
+host = "127.0.0.1"
+port = 8080
+log_level = "info"  # debug | info | warning | error
+
+[services.api]
+target = "http://localhost:3000"
+port = 3000
+prefix = "/api"
+strip_prefix = true
+
+[services.api.headers]
+X-Forwarded-By = "porthole"
+
+[services.frontend]
+target = "http://localhost:5173"
+port = 5173
+prefix = "/"
+strip_prefix = false
+
+[services.auth]
+target = "http://localhost:4000"
+port = 4000
+prefix = "/auth"
+strip_prefix = false
