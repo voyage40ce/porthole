@@ -89,3 +89,11 @@ def test_bad_callback_does_not_break_reload(cfg_file: Path) -> None:
         time.sleep(0.4)
 
     assert len(good) >= 1
+
+
+def test_context_manager_stops_watcher(cfg_file: Path) -> None:
+    """Ensure the background watcher thread is no longer alive after exiting the context."""
+    with ReloadCoordinator(cfg_file, poll_interval=0.1) as coord:
+        assert coord.is_running()
+
+    assert not coord.is_running()
