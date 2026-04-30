@@ -57,7 +57,11 @@ class ReloadCoordinator:
     # ------------------------------------------------------------------
 
     def _reload(self, path: Path) -> None:
-        new_cfg = load_config(path)
+        try:
+            new_cfg = load_config(path)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("Failed to reload config from %s: %s", path, exc)
+            return
         with self._lock:
             self._config = new_cfg
         logger.info(
