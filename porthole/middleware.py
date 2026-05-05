@@ -1,54 +1,41 @@
-"""Request middleware: timing and per-request logging."""
+"""Middleware helpers: timing wrapper and access-log prefix builder."""
 
 from __future__ import annotations
 
 import time
 from typing import Callable
 
-from porthole.logger import get_logger, log_request
+from porthole.logger import get_logger
+from porthole.metrics import get_collector
 
-_logger = get_logger("middleware")
+log = get_logger("porthole.middleware")
 
-# Type alias for a simple WSGI-like handler callable used in tests.
-Handler = Callable[[str, str, str], int]
+
+def build_access_log_prefix(method: str, path: str, service: str) -> str:
+    return f"[{service}] {method} {path}"
 
 
 def timed_proxy(
+    handler_fn: Callable[[], int],
+    *,
     method: str,
-    host: str,
     path: str,
-    call: Callable[[], int],
+    service: str,
 ) -> int:
-    """Call *call*, measure wall-clock time, log the result, return status code.
+    """Call *handler_fn*, measure elapsed time, log it, record metrics.
 
-    Parameters
-    ----------
-    method:
-        HTTP verb (GET, POST, …).
-    host:
-        Destination virtual-host header value.
-    path:
-        Request path including query string.
-    call:
-        Zero-argument callable that performs the actual proxy and returns an
-        HTTP status code (int).
+    Returns the HTTP status code returned by *handler_fn*.
+    Propagates any exception raised by *handler_fn* after logging.
     """
+    prefix = build_access_log_prefix(method, path, service)
     start = time.perf_counter()
     try:
-        status = call()
-    except Exception as exc:  # noqa: BLE001
+        status = handler_fn()
+    except Exception as exc:
         elapsed = (time.perf_counter() - start) * 1000
-        _logger.error(
-            "proxy error: %s",
-            exc,
-            extra={"method": method, "host": host, "path": path, "duration_ms": round(elapsed, 2)},
-        )
+        log.error("%s -> ERROR after %.1f ms: %s", prefix, elapsed, exc)
         raise
     elapsed = (time.perf_counter() - start) * 1000
-    log_request(_logger, method, host, path, status, elapsed)
+    log.info("%s -> %d (%.1f ms)", prefix, status, elapsed)
+    get_collector().record(service, status, elapsed)
     return status
-
-
-def build_access_log_prefix(method: str, host: str, path: str) -> str:
-    """Return a human-readable prefix string for access log lines."""
-    return f"{method} {host}{path}"
