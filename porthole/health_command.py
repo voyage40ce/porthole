@@ -7,6 +7,13 @@ from porthole.config import load_config, PortholeConfig
 from porthole.healthcheck import check_all, HealthStatus
 
 
+def _print_summary(results: list[HealthStatus], output) -> None:
+    """Print a summary line showing healthy/total service counts."""
+    total = len(results)
+    healthy = sum(1 for s in results if s.reachable)
+    print(f"\n{healthy}/{total} services reachable.", file=output)
+
+
 def run_health(
     config_path: str,
     timeout: float = 2.0,
@@ -37,5 +44,7 @@ def run_health(
         print(str(status), file=output)
         if not status.reachable:
             all_ok = False
+
+    _print_summary(results, output)
 
     return 0 if all_ok else 1
